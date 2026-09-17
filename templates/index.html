@@ -1,0 +1,870 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GroundControl — Multi-Agent Operations Coordination</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --bg-dark: #090d16;
+            --bg-card: rgba(18, 25, 41, 0.75);
+            --bg-card-hover: rgba(28, 38, 62, 0.85);
+            --border-glass: rgba(255, 255, 255, 0.08);
+            --border-accent: rgba(56, 189, 248, 0.3);
+            
+            --text-main: #f1f5f9;
+            --text-muted: #94a3b8;
+            --text-dim: #64748b;
+
+            --accent-cyan: #38bdf8;
+            --accent-purple: #a855f7;
+            --accent-emerald: #34d399;
+            --accent-amber: #fbbf24;
+            --accent-rose: #f43f5e;
+            --accent-indigo: #6366f1;
+
+            --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+            --font-mono: 'JetBrains Mono', monospace;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            background-image: 
+                radial-gradient(circle at 15% 15%, rgba(56, 189, 248, 0.07) 0%, transparent 40%),
+                radial-gradient(circle at 85% 85%, rgba(168, 85, 247, 0.07) 0%, transparent 40%);
+            color: var(--text-main);
+            font-family: var(--font-sans);
+            min-height: 100vh;
+            padding-bottom: 50px;
+        }
+
+        /* Header Bar */
+        header {
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border-glass);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            padding: 16px 32px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .brand-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            background: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            font-size: 18px;
+            color: #fff;
+            box-shadow: 0 0 15px rgba(56, 189, 248, 0.4);
+        }
+
+        .brand-title {
+            font-weight: 700;
+            font-size: 20px;
+            letter-spacing: -0.5px;
+            background: linear-gradient(90deg, #fff, var(--text-muted));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .brand-subtitle {
+            font-size: 12px;
+            color: var(--text-dim);
+            font-weight: 400;
+        }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .status-badge {
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            text-transform: uppercase;
+        }
+
+        .status-badge.success {
+            background: rgba(52, 211, 153, 0.15);
+            color: var(--accent-emerald);
+            border: 1px solid rgba(52, 211, 153, 0.3);
+            box-shadow: 0 0 12px rgba(52, 211, 153, 0.2);
+        }
+
+        .status-badge.infeasible {
+            background: rgba(244, 63, 94, 0.15);
+            color: var(--accent-rose);
+            border: 1px solid rgba(244, 63, 94, 0.3);
+            box-shadow: 0 0 12px rgba(244, 63, 94, 0.2);
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: currentColor;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+
+        /* Layout Grid */
+        .container {
+            max-width: 1440px;
+            margin: 24px auto;
+            padding: 0 32px;
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 24px;
+        }
+
+        /* Card Container */
+        .card {
+            background: var(--bg-card);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--border-glass);
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            transition: border-color 0.3s ease;
+        }
+
+        .card:hover {
+            border-color: rgba(255, 255, 255, 0.15);
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--border-glass);
+        }
+
+        .card-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .card-title-icon {
+            color: var(--accent-cyan);
+        }
+
+        /* Scenario Tabs */
+        .tab-bar {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .tab-btn {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid var(--border-glass);
+            color: var(--text-muted);
+            padding: 10px 18px;
+            border-radius: 10px;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .tab-btn:hover {
+            background: rgba(255, 255, 255, 0.08);
+            color: #fff;
+        }
+
+        .tab-btn.active {
+            background: linear-gradient(135deg, rgba(56, 189, 248, 0.2), rgba(168, 85, 247, 0.2));
+            border-color: var(--accent-cyan);
+            color: #fff;
+            box-shadow: 0 0 12px rgba(56, 189, 248, 0.2);
+        }
+
+        /* Delay Controls Panel */
+        .controls-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            align-items: end;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .form-label {
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--text-muted);
+        }
+
+        .form-select, .form-input {
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid var(--border-glass);
+            color: var(--text-main);
+            padding: 10px 14px;
+            border-radius: 8px;
+            font-size: 14px;
+            outline: none;
+            transition: border-color 0.2s ease;
+        }
+
+        .form-select:focus, .form-input:focus {
+            border-color: var(--accent-cyan);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent-cyan), var(--accent-indigo));
+            border: none;
+            color: #fff;
+            padding: 11px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 14px rgba(56, 189, 248, 0.3);
+        }
+
+        .btn-primary:hover {
+            opacity: 0.9;
+            transform: translateY(-1px);
+        }
+
+        /* Gantt Chart Timeline */
+        .gantt-container {
+            overflow-x: auto;
+            padding-top: 10px;
+        }
+
+        .gantt-header-row {
+            display: grid;
+            grid-template-columns: 140px 1fr;
+            margin-bottom: 12px;
+            align-items: center;
+        }
+
+        .timeline-ruler {
+            position: relative;
+            height: 24px;
+            border-bottom: 1px solid var(--border-glass);
+        }
+
+        .ruler-mark {
+            position: absolute;
+            top: 0;
+            font-size: 11px;
+            color: var(--text-dim);
+            font-family: var(--font-mono);
+            transform: translateX(-50%);
+        }
+
+        .ruler-line {
+            position: absolute;
+            top: 18px;
+            bottom: -300px;
+            width: 1px;
+            background: rgba(255, 255, 255, 0.03);
+            pointer-events: none;
+        }
+
+        .gantt-section {
+            margin-bottom: 24px;
+        }
+
+        .gantt-section-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--accent-cyan);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 10px;
+        }
+
+        .gantt-row {
+            display: grid;
+            grid-template-columns: 140px 1fr;
+            margin-bottom: 10px;
+            align-items: center;
+        }
+
+        .row-label {
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .row-track {
+            position: relative;
+            height: 36px;
+            background: rgba(15, 23, 42, 0.4);
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.03);
+        }
+
+        .flight-bar {
+            position: absolute;
+            top: 4px;
+            bottom: 4px;
+            border-radius: 6px;
+            padding: 0 10px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 11px;
+            font-weight: 600;
+            font-family: var(--font-mono);
+            color: #fff;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+            transition: all 0.3s ease;
+            cursor: pointer;
+            overflow: hidden;
+            white-space: nowrap;
+        }
+
+        .flight-bar.wide {
+            background: linear-gradient(135deg, rgba(168, 85, 247, 0.8), rgba(99, 102, 241, 0.8));
+            border: 1px solid rgba(168, 85, 247, 0.5);
+        }
+
+        .flight-bar.narrow {
+            background: linear-gradient(135deg, rgba(56, 189, 248, 0.8), rgba(52, 211, 153, 0.8));
+            border: 1px solid rgba(56, 189, 248, 0.5);
+        }
+
+        .flight-bar:hover {
+            transform: scale(1.02);
+            z-index: 10;
+        }
+
+        .type-pill {
+            font-size: 9px;
+            padding: 2px 6px;
+            border-radius: 4px;
+            background: rgba(0, 0, 0, 0.3);
+            text-transform: uppercase;
+        }
+
+        /* Two Column Layout for Logs & PEAS */
+        .two-col {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 24px;
+        }
+
+        @media (max-width: 1024px) {
+            .two-col {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* CNP Message Terminal */
+        .terminal {
+            background: #060911;
+            border-radius: 12px;
+            border: 1px solid var(--border-glass);
+            padding: 16px;
+            height: 380px;
+            overflow-y: auto;
+            font-family: var(--font-mono);
+            font-size: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .msg-line {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            line-height: 1.5;
+            padding: 4px 8px;
+            border-radius: 6px;
+            background: rgba(255, 255, 255, 0.01);
+        }
+
+        .msg-badge {
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 10px;
+            font-weight: 700;
+            flex-shrink: 0;
+        }
+
+        .msg-badge.CFP { background: rgba(56, 189, 248, 0.2); color: var(--accent-cyan); border: 1px solid var(--accent-cyan); }
+        .msg-badge.PROPOSE { background: rgba(168, 85, 247, 0.2); color: var(--accent-purple); border: 1px solid var(--accent-purple); }
+        .msg-badge.ACCEPT { background: rgba(52, 211, 153, 0.2); color: var(--accent-emerald); border: 1px solid var(--accent-emerald); }
+        .msg-badge.REFUSE { background: rgba(244, 63, 94, 0.2); color: var(--accent-rose); border: 1px solid var(--accent-rose); }
+        .msg-badge.DISRUPT { background: rgba(251, 191, 36, 0.2); color: var(--accent-amber); border: 1px solid var(--accent-amber); }
+        .msg-badge.REPAIR { background: rgba(99, 102, 241, 0.2); color: var(--accent-indigo); border: 1px solid var(--accent-indigo); }
+
+        .msg-text {
+            color: var(--text-muted);
+        }
+
+        .msg-text strong {
+            color: var(--text-main);
+        }
+
+        /* PEAS Monitor Cards */
+        .peas-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .agent-card {
+            background: rgba(15, 23, 42, 0.5);
+            border: 1px solid var(--border-glass);
+            border-radius: 12px;
+            padding: 14px;
+        }
+
+        .agent-name {
+            font-weight: 600;
+            font-size: 14px;
+            color: var(--accent-cyan);
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .agent-peas {
+            font-size: 11px;
+            color: var(--text-dim);
+            line-height: 1.6;
+        }
+
+        .agent-peas span {
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Header Navigation -->
+    <header>
+        <div class="brand">
+            <div class="brand-icon">GC</div>
+            <div>
+                <div class="brand-title">GroundControl</div>
+                <div class="brand-subtitle">Multi-Agent Airport Ground Operations Coordination</div>
+            </div>
+        </div>
+        <div class="header-actions">
+            <div id="statusBadge" class="status-badge success">
+                <div class="status-dot"></div>
+                <span id="statusText">SUCCESS</span>
+            </div>
+        </div>
+    </header>
+
+    <div class="container">
+
+        <!-- Control Panel Card -->
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">
+                    <span class="card-title-icon">⚡</span>
+                    Scenario Control Panel
+                </div>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 20px;">
+                <!-- Scenario Switcher Tabs -->
+                <div class="tab-bar">
+                    <button class="tab-btn active" onclick="loadScenario('act1', this)">
+                        <span>Act 1</span> Happy Path
+                    </button>
+                    <button class="tab-btn" onclick="loadScenario('act2', this)">
+                        <span>Act 2</span> Single Delay
+                    </button>
+                    <button class="tab-btn" onclick="loadScenario('act3a', this)">
+                        <span>Act 3a</span> Overlapping Wide Delays
+                    </button>
+                    <button class="tab-btn" onclick="loadScenario('act3b', this)">
+                        <span>Act 3b</span> Infeasible Gate Contention
+                    </button>
+                </div>
+
+                <!-- Custom Delay Injector -->
+                <div class="controls-grid">
+                    <div class="form-group">
+                        <label class="form-label">Target Flight</label>
+                        <select id="flightSelect" class="form-select">
+                            <!-- Populated dynamically -->
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Delay Duration (Minutes)</label>
+                        <input type="number" id="delayInput" class="form-input" value="20" min="0" max="120">
+                    </div>
+
+                    <div>
+                        <button class="btn-primary" onclick="injectDelay()">
+                            Inject Delay & Repair Schedule
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Timeline Gantt Chart Card -->
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">
+                    <span class="card-title-icon">📊</span>
+                    Real-Time Operational Timeline (Gantt Schedule)
+                </div>
+                <div style="font-size: 12px; color: var(--text-dim); display: flex; gap: 16px;">
+                    <span style="display: flex; align-items: center; gap: 6px;">
+                        <span style="width: 10px; height: 10px; border-radius: 2px; background: linear-gradient(135deg, rgba(168, 85, 247, 0.8), rgba(99, 102, 241, 0.8));"></span>
+                        Wide-Body
+                    </span>
+                    <span style="display: flex; align-items: center; gap: 6px;">
+                        <span style="width: 10px; height: 10px; border-radius: 2px; background: linear-gradient(135deg, rgba(56, 189, 248, 0.8), rgba(52, 211, 153, 0.8));"></span>
+                        Narrow-Body
+                    </span>
+                </div>
+            </div>
+
+            <div class="gantt-container">
+                <div class="gantt-header-row">
+                    <div></div>
+                    <div class="timeline-ruler" id="timelineRuler">
+                        <!-- Ruler markers populated dynamically -->
+                    </div>
+                </div>
+
+                <div id="ganttBody">
+                    <!-- Dynamic Gantt rows for Gates, Baggage, Refueling -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Two Column Section: CNP Logs & Agent PEAS Panel -->
+        <div class="two-col">
+            <!-- Contract Net Protocol Log Stream -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">
+                        <span class="card-title-icon">💬</span>
+                        Contract Net Protocol (CNP) Message Log
+                    </div>
+                </div>
+                <div class="terminal" id="messageTerminal">
+                    <!-- Message log entries populated dynamically -->
+                </div>
+            </div>
+
+            <!-- PEAS Agent System Monitor -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">
+                        <span class="card-title-icon">🤖</span>
+                        Autonomous Agent Architecture
+                    </div>
+                </div>
+
+                <div class="peas-grid">
+                    <div class="agent-card">
+                        <div class="agent-name">
+                            GateAssignmentAgent
+                            <span style="font-size: 11px; padding: 2px 6px; border-radius: 4px; background: rgba(56, 189, 248, 0.15); color: var(--accent-cyan);">CSP SOLVER</span>
+                        </div>
+                        <div class="agent-peas">
+                            <span>Performance:</span> Maximize compatible gate utilization, enforce 10m buffers, minimize delay propagation.<br>
+                            <span>Environment:</span> Gate map (narrow/wide capable), aircraft types, arrival schedules.<br>
+                            <span>Actuators:</span> Assign/reassign gate, broadcast CFP/DISRUPT messages.<br>
+                            <span>Sensors:</span> Flight arrival/delay signals, gate occupancy state.
+                        </div>
+                    </div>
+
+                    <div class="agent-card">
+                        <div class="agent-name">
+                            BaggageHandlingAgent
+                            <span style="font-size: 11px; padding: 2px 6px; border-radius: 4px; background: rgba(168, 85, 247, 0.15); color: var(--accent-purple);">CREW POOL</span>
+                        </div>
+                        <div class="agent-peas">
+                            <span>Performance:</span> Allocate crew without overlap inside turnaround window.<br>
+                            <span>Environment:</span> Crew roster, gate availability windows broadcast by GateAgent.<br>
+                            <span>Actuators:</span> Dispatch crew, send PROPOSE/REFUSE messages.<br>
+                            <span>Sensors:</span> Gate window updates (CFP/DISRUPT), crew schedule state.
+                        </div>
+                    </div>
+
+                    <div class="agent-card">
+                        <div class="agent-name">
+                            RefuelingAgent
+                            <span style="font-size: 11px; padding: 2px 6px; border-radius: 4px; background: rgba(52, 211, 153, 0.15); color: var(--accent-emerald);">TRUCK FLEET</span>
+                        </div>
+                        <div class="agent-peas">
+                            <span>Performance:</span> Allocate trucks without overlap inside turnaround window.<br>
+                            <span>Environment:</span> Truck fleet, gate availability windows broadcast by GateAgent.<br>
+                            <span>Actuators:</span> Dispatch truck, send PROPOSE/REFUSE messages.<br>
+                            <span>Sensors:</span> Gate window updates (CFP/DISRUPT), truck schedule state.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        let currentData = null;
+        let timeScaleMax = 80;
+
+        async function loadScenario(name, btnElement) {
+            if (btnElement) {
+                document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+                btnElement.classList.add('active');
+            }
+
+            try {
+                const response = await fetch(`/api/scenario/${name}`);
+                currentData = await response.json();
+                renderUI();
+            } catch (err) {
+                console.error("Failed to load scenario:", err);
+            }
+        }
+
+        async function injectDelay() {
+            const flightId = document.getElementById('flightSelect').value;
+            const delayMinutes = document.getElementById('delayInput').value;
+
+            if (!flightId) return;
+
+            try {
+                const response = await fetch('/api/delay', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ flight_id: flightId, delay_minutes: delayMinutes })
+                });
+                currentData = await response.json();
+                renderUI();
+            } catch (err) {
+                console.error("Failed to inject delay:", err);
+            }
+        }
+
+        function renderUI() {
+            if (!currentData) return;
+
+            // Status Badge
+            const badge = document.getElementById('statusBadge');
+            const statusText = document.getElementById('statusText');
+            if (currentData.status === 'SUCCESS') {
+                badge.className = 'status-badge success';
+                statusText.innerText = 'SUCCESS';
+            } else {
+                badge.className = 'status-badge infeasible';
+                statusText.innerText = 'INFEASIBLE';
+            }
+
+            // Populate Flight Select
+            const flightSelect = document.getElementById('flightSelect');
+            flightSelect.innerHTML = '';
+            currentData.flights.forEach(f => {
+                const opt = document.createElement('option');
+                opt.value = f.flight_id;
+                opt.innerText = `${f.flight_id} (${f.aircraft_type.toUpperCase()}) - Delay: +${f.delay_minutes}m`;
+                flightSelect.appendChild(opt);
+            });
+
+            // Calculate maximum timeline time for scaling
+            let maxTime = 60;
+            currentData.flights.forEach(f => {
+                const end = f.current_arrival + f.turnaround_window + 15;
+                if (end > maxTime) maxTime = end;
+            });
+            timeScaleMax = Math.ceil(maxTime / 10) * 10;
+
+            renderTimelineRuler();
+            renderGanttBody();
+            renderMessages();
+        }
+
+        function renderTimelineRuler() {
+            const ruler = document.getElementById('timelineRuler');
+            ruler.innerHTML = '';
+            const step = 10;
+            for (let t = 0; t <= timeScaleMax; t += step) {
+                const mark = document.createElement('div');
+                mark.className = 'ruler-mark';
+                mark.style.left = `${(t / timeScaleMax) * 100}%`;
+                mark.innerText = `${t}m`;
+                ruler.appendChild(mark);
+            }
+        }
+
+        function renderGanttBody() {
+            const container = document.getElementById('ganttBody');
+            container.innerHTML = '';
+
+            if (currentData.status === 'INFEASIBLE') {
+                container.innerHTML = `<div style="padding: 30px; text-align: center; color: var(--accent-rose); font-weight: 600;">
+                    ⚠️ INFEASIBLE SCHEDULE: No valid assignment satisfies all resource and compatibility constraints!
+                </div>`;
+                return;
+            }
+
+            // Section 1: Gates
+            const gateSec = document.createElement('div');
+            gateSec.className = 'gantt-section';
+            gateSec.innerHTML = `<div class="gantt-section-title">Gate Assignments</div>`;
+            currentData.gates.forEach(g => {
+                const row = createGanttRow(
+                    `${g.gate_id} ${g.wide_body_capable ? '(WIDE)' : ''}`,
+                    currentData.schedules.gate[g.gate_id] || []
+                );
+                gateSec.appendChild(row);
+            });
+            container.appendChild(gateSec);
+
+            // Section 2: Baggage Crews
+            const bagSec = document.createElement('div');
+            bagSec.className = 'gantt-section';
+            bagSec.innerHTML = `<div class="gantt-section-title">Baggage Crew Allocations</div>`;
+            currentData.crews.forEach(c => {
+                const row = createGanttRow(
+                    c.crew_id,
+                    currentData.schedules.baggage[c.crew_id] || []
+                );
+                bagSec.appendChild(row);
+            });
+            container.appendChild(bagSec);
+
+            // Section 3: Refueling Trucks
+            const refSec = document.createElement('div');
+            refSec.className = 'gantt-section';
+            refSec.innerHTML = `<div class="gantt-section-title">Refueling Truck Allocations</div>`;
+            currentData.trucks.forEach(t => {
+                const row = createGanttRow(
+                    t.truck_id,
+                    currentData.schedules.refuel[t.truck_id] || []
+                );
+                refSec.appendChild(row);
+            });
+            container.appendChild(refSec);
+        }
+
+        function createGanttRow(label, assignments) {
+            const row = document.createElement('div');
+            row.className = 'gantt-row';
+
+            const labelEl = document.createElement('div');
+            labelEl.className = 'row-label';
+            labelEl.innerText = label;
+
+            const trackEl = document.createElement('div');
+            trackEl.className = 'row-track';
+
+            assignments.forEach(a => {
+                const flightMeta = currentData.flights.find(f => f.flight_id === a.flight_id);
+                const isWide = flightMeta && flightMeta.aircraft_type === 'wide';
+
+                const leftPct = (a.start / timeScaleMax) * 100;
+                const widthPct = ((a.end - a.start) / timeScaleMax) * 100;
+
+                const bar = document.createElement('div');
+                bar.className = `flight-bar ${isWide ? 'wide' : 'narrow'}`;
+                bar.style.left = `${leftPct}%`;
+                bar.style.width = `${widthPct}%`;
+                bar.innerHTML = `
+                    <span>${a.flight_id}</span>
+                    <span class="type-pill">${isWide ? 'WIDE' : 'NRW'}</span>
+                `;
+                bar.title = `Flight: ${a.flight_id}\nWindow: [${a.start}, ${a.end}]\nDuration: ${a.end - a.start}m`;
+                trackEl.appendChild(bar);
+            });
+
+            row.appendChild(labelEl);
+            row.appendChild(trackEl);
+            return row;
+        }
+
+        function renderMessages() {
+            const terminal = document.getElementById('messageTerminal');
+            terminal.innerHTML = '';
+
+            currentData.messages.forEach(m => {
+                const line = document.createElement('div');
+                line.className = 'msg-line';
+
+                const badge = document.createElement('div');
+                badge.className = `msg-badge ${m.msg_type}`;
+                badge.innerText = m.msg_type;
+
+                const text = document.createElement('div');
+                text.className = 'msg-text';
+                text.innerHTML = `<strong>${m.sender}</strong> → <strong>${m.receiver}</strong>: Flight <strong>${m.flight_id}</strong> ${m.resource_id ? `(${m.resource_id})` : ''} ${m.start || m.end ? `[${m.start}, ${m.end}]` : ''} <em>${m.details}</em>`;
+
+                line.appendChild(badge);
+                line.appendChild(text);
+                terminal.appendChild(line);
+            });
+
+            terminal.scrollTop = terminal.scrollHeight;
+        }
+
+        // Initial load
+        window.addEventListener('DOMContentLoaded', () => {
+            loadScenario('act1');
+        });
+    </script>
+</body>
+</html>
