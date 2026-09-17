@@ -90,12 +90,10 @@ class GateCSPSolver:
                     # f1 and f2 overlap in time: they MUST NOT share the same gate
                     problem.addConstraint(lambda g1, g2: g1 != g2, (f1.flight_id, f2.flight_id))
 
-        solutions = problem.getSolutions()
-        if not solutions:
+        # Use getSolution() (singular) for O(1) early exit upon finding first valid assignment
+        best_solution = problem.getSolution()
+        if best_solution is None:
             return None
-
-        # Pick best solution prioritizing narrow-body on non-wide gates
-        best_solution = solutions[0]
         
         assignments: Dict[str, Assignment] = {}
         for flight in flight_list:

@@ -66,18 +66,29 @@ class FlightOpsTests(unittest.TestCase):
         self.assertLessEqual(refuel_plan.end, after_gate_plan.end)
 
     def test_stress_overlapping_wide_delays_feasible(self) -> None:
-        flights, gates, crews, trucks = build_act3a_overlapping_wide_delays()
-        coordinator, plans = run_plan(flights, gates, crews, trucks)
-
+        flights, gates, crews, trucks, delays = build_act3a_overlapping_wide_delays()
+        coordinator, initial_plans = run_plan(flights, gates, crews, trucks)
         self.assertEqual(coordinator.status, "SUCCESS")
-        self.assertEqual(len(plans), len(flights))
+
+        # Inject live sequential delays
+        for flight_id, delay_mins in delays:
+            coordinator.repair_delay(flight_id, delay_mins)
+            self.assertEqual(coordinator.status, "SUCCESS")
+
+        final_plans = coordinator.current_plan()
+        self.assertEqual(len(final_plans), len(flights))
 
     def test_stress_wide_gate_contention_infeasible(self) -> None:
-        flights, gates, crews, trucks = build_act3b_infeasible_gate_contention()
-        coordinator, plans = run_plan(flights, gates, crews, trucks)
+        flights, gates, crews, trucks, delays = build_act3b_infeasible_gate_contention()
+        coordinator, initial_plans = run_plan(flights, gates, crews, trucks)
+        self.assertEqual(coordinator.status, "SUCCESS")
+
+        # Inject live delays until capacity exhausted
+        for flight_id, delay_mins in delays:
+            coordinator.repair_delay(flight_id, delay_mins)
 
         self.assertEqual(coordinator.status, "INFEASIBLE")
-        self.assertEqual(plans, {})
+        self.assertEqual(coordinator.current_plan(), {})
 
     def test_cnp_message_logging(self) -> None:
         flights, gates, crews, trucks = build_act1_standard_scenario()

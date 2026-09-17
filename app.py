@@ -14,7 +14,6 @@ from flightops.simulator import build_coordinator
 
 app = Flask(__name__, template_folder="templates")
 
-# In-memory session state per active scenario
 active_state: Dict[str, Any] = {
     "scenario_name": "act1",
     "flights": [],
@@ -28,17 +27,33 @@ active_state: Dict[str, Any] = {
 def load_scenario(name: str) -> None:
     if name == "act1":
         flights, gates, crews, trucks = build_act1_standard_scenario()
+        coord = build_coordinator(gates, crews, trucks)
+        coord.plan(flights)
+
     elif name == "act2":
-        flights, gates, crews, trucks, _, _ = build_act2_single_delay_scenario()
+        flights, gates, crews, trucks, delayed_id, delay_mins = build_act2_single_delay_scenario()
+        coord = build_coordinator(gates, crews, trucks)
+        coord.plan(flights)
+        coord.repair_delay(delayed_id, delay_mins)
+
     elif name == "act3a":
-        flights, gates, crews, trucks = build_act3a_overlapping_wide_delays()
+        flights, gates, crews, trucks, delays = build_act3a_overlapping_wide_delays()
+        coord = build_coordinator(gates, crews, trucks)
+        coord.plan(flights)
+        for flight_id, delay_mins in delays:
+            coord.repair_delay(flight_id, delay_mins)
+
     elif name == "act3b":
-        flights, gates, crews, trucks = build_act3b_infeasible_gate_contention()
+        flights, gates, crews, trucks, delays = build_act3b_infeasible_gate_contention()
+        coord = build_coordinator(gates, crews, trucks)
+        coord.plan(flights)
+        for flight_id, delay_mins in delays:
+            coord.repair_delay(flight_id, delay_mins)
+
     else:
         flights, gates, crews, trucks = build_act1_standard_scenario()
-
-    coord = build_coordinator(gates, crews, trucks)
-    coord.plan(flights)
+        coord = build_coordinator(gates, crews, trucks)
+        coord.plan(flights)
 
     active_state["scenario_name"] = name
     active_state["flights"] = flights

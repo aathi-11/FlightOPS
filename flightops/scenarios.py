@@ -8,6 +8,7 @@ def build_act1_standard_scenario() -> Tuple[List[Flight], List[Gate], List[Crew]
     """
     Act 1: Happy Path Scenario.
     4 flights (1 wide-body, 3 narrow-body) with adequate gates, crews, and trucks.
+    All flights arrive on schedule with zero conflicts.
     """
     flights = [
         Flight("FL100", AircraftType.NARROW, scheduled_arrival=0, turnaround_window=45, gate_duration=20, baggage_duration=10, refuel_duration=12),
@@ -28,7 +29,7 @@ def build_act1_standard_scenario() -> Tuple[List[Flight], List[Gate], List[Crew]
 def build_act2_single_delay_scenario() -> Tuple[List[Flight], List[Gate], List[Crew], List[Truck], str, int]:
     """
     Act 2: Single Delay Scenario.
-    FL200 (wide-body) delayed by 20 minutes.
+    FL200 (wide-body) arrives on-time initially, then incurs a live 20-minute delay.
     """
     flights, gates, crews, trucks = build_act1_standard_scenario()
     delayed_flight_id = "FL200"
@@ -36,14 +37,15 @@ def build_act2_single_delay_scenario() -> Tuple[List[Flight], List[Gate], List[C
     return flights, gates, crews, trucks, delayed_flight_id, delay_minutes
 
 
-def build_act3a_overlapping_wide_delays() -> Tuple[List[Flight], List[Gate], List[Crew], List[Truck]]:
+def build_act3a_overlapping_wide_delays() -> Tuple[List[Flight], List[Gate], List[Crew], List[Truck], List[Tuple[str, int]]]:
     """
-    Act 3a: Overlapping Wide-Body Delays (Feasible).
-    2 wide-body flights delayed into overlapping windows, 2 wide-capable gates present.
+    Act 3a: Live Sequential Wide-Body Delays (Feasible).
+    Flights arrive on schedule initially. Then WX901 and WX902 incur live delays into overlapping
+    windows. The system renegotiates live and assigns them to the 2 available wide gates (G-W1, G-W2).
     """
     flights = [
-        Flight("WX901", AircraftType.WIDE, scheduled_arrival=20, turnaround_window=45, gate_duration=30, baggage_duration=15, refuel_duration=15, delay_minutes=5),
-        Flight("WX902", AircraftType.WIDE, scheduled_arrival=25, turnaround_window=45, gate_duration=30, baggage_duration=15, refuel_duration=15, delay_minutes=5),
+        Flight("WX901", AircraftType.WIDE, scheduled_arrival=5, turnaround_window=45, gate_duration=30, baggage_duration=15, refuel_duration=15),
+        Flight("WX902", AircraftType.WIDE, scheduled_arrival=10, turnaround_window=45, gate_duration=30, baggage_duration=15, refuel_duration=15),
         Flight("NX101", AircraftType.NARROW, scheduled_arrival=10, turnaround_window=40, gate_duration=20, baggage_duration=10, refuel_duration=10),
         Flight("NX102", AircraftType.NARROW, scheduled_arrival=35, turnaround_window=40, gate_duration=20, baggage_duration=10, refuel_duration=10),
     ]
@@ -55,18 +57,21 @@ def build_act3a_overlapping_wide_delays() -> Tuple[List[Flight], List[Gate], Lis
     ]
     crews = [Crew("BC-1"), Crew("BC-2"), Crew("BC-3")]
     trucks = [Truck("TR-1"), Truck("TR-2")]
-    return flights, gates, crews, trucks
+    delays_to_inject = [("WX901", 20), ("WX902", 20)]
+    return flights, gates, crews, trucks, delays_to_inject
 
 
-def build_act3b_infeasible_gate_contention() -> Tuple[List[Flight], List[Gate], List[Crew], List[Truck]]:
+def build_act3b_infeasible_gate_contention() -> Tuple[List[Flight], List[Gate], List[Crew], List[Truck], List[Tuple[str, int]]]:
     """
-    Act 3b: Overlapping Wide-Body Delays Exceeding Capacity (Infeasible).
-    3 wide-body flights competing for overlapping windows with only 2 wide-capable gates.
+    Act 3b: Live Cascading Delays Exceeding Wide Gate Capacity (Infeasible).
+    Three wide-body flights arrive sequentially on-time initially. Subsequent live delay events
+    push all three wide flights into overlapping turnaround windows when only 2 wide gates exist.
+    The system detects constraint exhaustion live and reports INFEASIBLE.
     """
     flights = [
-        Flight("WX901", AircraftType.WIDE, scheduled_arrival=20, turnaround_window=45, gate_duration=30, baggage_duration=15, refuel_duration=15),
-        Flight("WX902", AircraftType.WIDE, scheduled_arrival=22, turnaround_window=45, gate_duration=30, baggage_duration=15, refuel_duration=15),
-        Flight("WX903", AircraftType.WIDE, scheduled_arrival=25, turnaround_window=45, gate_duration=30, baggage_duration=15, refuel_duration=15),
+        Flight("WX901", AircraftType.WIDE, scheduled_arrival=0, turnaround_window=45, gate_duration=30, baggage_duration=15, refuel_duration=15),
+        Flight("WX902", AircraftType.WIDE, scheduled_arrival=40, turnaround_window=45, gate_duration=30, baggage_duration=15, refuel_duration=15),
+        Flight("WX903", AircraftType.WIDE, scheduled_arrival=80, turnaround_window=45, gate_duration=30, baggage_duration=15, refuel_duration=15),
     ]
     gates = [
         Gate("G-A", wide_body_capable=False),
@@ -76,9 +81,10 @@ def build_act3b_infeasible_gate_contention() -> Tuple[List[Flight], List[Gate], 
     ]
     crews = [Crew("BC-1"), Crew("BC-2"), Crew("BC-3")]
     trucks = [Truck("TR-1"), Truck("TR-2"), Truck("TR-3")]
-    return flights, gates, crews, trucks
+    delays_to_inject = [("WX901", 20), ("WX902", -15), ("WX903", -55)]  # Pushes WX901, WX902, WX903 into overlapping windows
+    return flights, gates, crews, trucks, delays_to_inject
 
 
-# Aliases for backward compatibility
+# Backward compatibility aliases
 build_standard_scenario = build_act1_standard_scenario
 build_stress_scenario = build_act2_single_delay_scenario

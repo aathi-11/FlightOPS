@@ -6,7 +6,7 @@ from .scenarios import (
     build_act3a_overlapping_wide_delays,
     build_act3b_infeasible_gate_contention,
 )
-from .simulator import render_assignments, render_message_logs, run_plan
+from .simulator import render_assignments, run_plan
 
 
 def _print_header(title: str) -> None:
@@ -27,10 +27,10 @@ def run_act2() -> None:
     _print_header("Act 2: Single Delay & Live Renegotiation")
     flights, gates, crews, trucks, delayed_flight_id, delay_minutes = build_act2_single_delay_scenario()
     coordinator, _ = run_plan(flights, gates, crews, trucks)
-    print("--- Initial Schedule ---")
+    print("--- Initial On-Time Schedule ---")
     print(render_assignments(coordinator))
 
-    print(f"\n>>> Injecting {delay_minutes}-minute delay to wide-body flight {delayed_flight_id}...")
+    print(f"\n>>> Injecting live {delay_minutes}-minute delay to wide-body flight {delayed_flight_id}...")
     coordinator.repair_delay(delayed_flight_id, delay_minutes)
 
     print("\n--- Schedule After Live CNP & CSP Repair ---")
@@ -38,18 +38,35 @@ def run_act2() -> None:
 
 
 def run_act3a() -> None:
-    _print_header("Act 3a: Stress Test - Overlapping Wide-Body Delays (Feasible)")
-    flights, gates, crews, trucks = build_act3a_overlapping_wide_delays()
+    _print_header("Act 3a: Live Stress Test - Overlapping Wide-Body Delays (Feasible)")
+    flights, gates, crews, trucks, delays_to_inject = build_act3a_overlapping_wide_delays()
     coordinator, _ = run_plan(flights, gates, crews, trucks)
-    print("2 Wide-body flights overlapping on 2 Wide-capable gates:")
+    print("--- Initial On-Time Schedule ---")
+    print(render_assignments(coordinator))
+
+    for flight_id, delay_mins in delays_to_inject:
+        print(f"\n>>> Injecting live delay of {delay_mins}m to flight {flight_id}...")
+        coordinator.repair_delay(flight_id, delay_mins)
+
+    print("\n--- Schedule After Live Renegotiation of Overlapping Wide Delays ---")
     print(render_assignments(coordinator))
 
 
 def run_act3b() -> None:
-    _print_header("Act 3b: Stress Test - Wide-Body Gate Contention (Infeasible)")
-    flights, gates, crews, trucks = build_act3b_infeasible_gate_contention()
+    _print_header("Act 3b: Live Stress Test - Wide-Body Gate Contention (Infeasible)")
+    flights, gates, crews, trucks, delays_to_inject = build_act3b_infeasible_gate_contention()
     coordinator, _ = run_plan(flights, gates, crews, trucks)
-    print("3 Wide-body flights competing for 2 Wide-capable gates:")
+    print("--- Initial On-Time Schedule (3 Wide Flights, 2 Wide Gates) ---")
+    print(render_assignments(coordinator))
+
+    for flight_id, delay_mins in delays_to_inject:
+        print(f"\n>>> Injecting live delay shift of {delay_mins}m to flight {flight_id}...")
+        coordinator.repair_delay(flight_id, delay_mins)
+        if coordinator.status == "INFEASIBLE":
+            print(f"  [DISRUPT EVENT] Gate capacity exhausted! System caught live constraint failure.")
+            break
+
+    print("\n--- Final Status After Disruption ---")
     print(render_assignments(coordinator))
 
 
